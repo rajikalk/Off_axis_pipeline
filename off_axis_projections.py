@@ -188,12 +188,12 @@ if rank == 0:
 myf.set_centred_sink_id(sink_id)
 sink_form_time = dd['sink_particle_form_time'][sink_id]
 sink_form_companion = dd['sink_particle_form_time'][sink_id+1]#Assumes the companion has the sink id of the primary sink id +1
+
 if args.start_frame == 0 and args.plot_time == None:
     args.start_frame = int((sink_form_companion - sink_form_time)/(args.time_step))+1
-del dd
-
 sys.stdout.flush()
 CW.Barrier()
+del dd
 
 
 verbatim = False
@@ -223,7 +223,8 @@ CW.Barrier()
 #Trying yt parallelism
 file_int = -1
 field_list = [proj_field, ('gas', 'Radial_Velocity'), ('gas', 'Proj_x_velocity'), ('gas', 'Proj_y_velocity')]
-for fn_it in yt.parallel_objects(range(len(usable_files)), njobs=int(size/(8*len(field_list)))): #8 projection and 4 fields.
+N_proj_vectors = 8
+for fn_it in yt.parallel_objects(range(len(usable_files)), njobs=int(size/(8*4))): #8 projection and 4 fields.
     fn = usable_files[fn_it]
     print("File", fn, "is going to rank", rank)
     if size > 1:
@@ -340,7 +341,7 @@ for fn_it in yt.parallel_objects(range(len(usable_files)), njobs=int(size/(8*len
                 north_vectors.append(np.array([np.nan, np.nan, np.nan]))
         
         #Now that projection and north vectors have been generated, lets create the projection
-        for proj_it in yt.parallel_objects(range(len(projection_vectors)), njobs=int(len(vectors_along_cone))):# range(len(projection_vectors)):
+        for proj_it in yt.parallel_objects(range(len(projection_vectors)), njobs=8):# range(len(projection_vectors)):
             if True in np.isnan(projection_vectors[proj_it]):
                 print("Skipping projection because  projection vector is Nan")
             elif args.plot_time == None and os.path.exists(save_dir + "movie_frame_" + ("%06d" % frames[file_int]) + "/projection_" + str(proj_it) + ".pkl"):
@@ -471,7 +472,8 @@ for fn_it in yt.parallel_objects(range(len(usable_files)), njobs=int(size/(8*len
                             print("BREAKING BECAUSE IT IS STALLED")
                             import pdb
                             pdb.set_trace()
-                        '''
+                    '''
+                        
                         
                 if rank == proj_root_rank:
                     image = yt.YTArray(proj_dict[proj_dict_keys[0]], args.field_unit)
@@ -486,6 +488,7 @@ for fn_it in yt.parallel_objects(range(len(usable_files)), njobs=int(size/(8*len
                         vely_full = np.flip(np.flip(vely_full, axis=0), axis=1)
                         part_info['particle_position'][1][0] = part_info['particle_position'][1][0]*-1
 
+                    time_val = m_times[file_int]
                     image_dict = {'time': time_val, 'center_vel_image':center_vel_image, 'proj_vector': proj_vector_unit, 'field': field, 'field_unit':str(image.units), 'density_threshold': args.density_threshold}
                     
                     pickle_file = pickle_file + 'projection_' + str(proj_it) + '.pkl'
